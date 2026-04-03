@@ -1,7 +1,11 @@
+import os
+import sys
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import gradio as gr
 import time
 import json
-import os
 from openai import OpenAI
 from models import Action
 from server.my_env_environment import CloudManagerEnv
