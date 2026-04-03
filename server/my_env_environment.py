@@ -1,4 +1,4 @@
-from my_env.models import Server, Observation, Action, Reward, State
+from models import Server, Observation, Action, Reward, State
 from typing import List, Tuple
 
 class CloudManagerEnv:

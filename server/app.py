@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
-from my_env.models import Action, Server
-from my_env.server.my_env_environment import CloudManagerEnv
+from models import Action, Server
+from server.my_env_environment import CloudManagerEnv
 
 app = FastAPI()
 
