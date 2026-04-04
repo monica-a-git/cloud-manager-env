@@ -1,7 +1,10 @@
 spec_version: 1
-name: my_env
+name: cloud-management-env
 type: space
 runtime: fastapi
 app: server.app:app
 port: 8000
-
+tasks:
+  - cloud-management-easy
+  - cloud-management-medium
+  - cloud-management-hard

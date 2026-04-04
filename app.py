@@ -1,23 +1,92 @@
+import os
+import json
+import time
 import gradio as gr
-from server.inference import run_simulation
+from openai import OpenAI
+from my_env.server.my_env_environment import CloudManagerEnv
+from my_env.models import Action
 
-print("APP STARTED")
+API_BASE_URL = os.environ.get("OPENAI_API_BASE", "https://api.openai.com/v1")
+API_KEY = os.environ.get("OPENAI_API_KEY", os.environ.get("HF_TOKEN", ""))
+MODEL_NAME = os.environ.get("MODEL_NAME", "gpt-4o-mini")
 
-with gr.Blocks() as demo:
-    gr.Markdown("# ☁️ AI Cloud Server Manager")
+system_prompt = """
+You are a Cloud Infrastructure Manager.
+GOAL: Keep capacity slightly above traffic. Respond strictly in JSON:
+{"target_server_id": "web-2", "command": "start"}
+Valid commands: "start", "stop", "none".
+"""
 
-    difficulty = gr.Dropdown(
-        choices=["Easy", "Medium", "Hard"],
-        value="Medium",
-        label="Difficulty"
-    )
+def run_simulation(difficulty):
+    if not API_KEY:
+        yield "Missing OPENAI_API_KEY", "", "", "ERROR"
+        return
 
-    start_btn = gr.Button("Start")
+    client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
+    task_name = f"cloud-management-{difficulty.lower()}"
+    
+    env = CloudManagerEnv(task_name=task_name)
+    obs = env.reset()
 
-    logs = gr.Textbox(label="Logs", lines=10)
-    stats = gr.Textbox(label="Stats")
-    live = gr.Textbox(label="Live")
-    grade = gr.Textbox(label="Final Grade")
+    log_text = f"Starting {task_name}...\n"
+    
+    for step in range(env.max_steps):
+        try:
+            response = client.chat.completions.create(
+                model=MODEL_NAME,
+                response_format={"type": "json_object"},
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": f"Observation: {obs.model_dump_json()}"}
+                ],
+                temperature=0.0
+            )
+            action_data = json.loads(response.choices[0].message.content)
+            action = Action(**action_data)
+        except Exception as e:
+            print("LLM ERROR:", e)
+            action = Action(target_server_id="none", command="none")
+
+        obs = env.step(action)
+        
+        # In openenv, obs contains metadata with history if we injected it
+        recent_log = obs.history_log[-1] if hasattr(obs, 'history_log') and obs.history_log else ""
+        
+        traffic = obs.current_traffic if hasattr(obs, 'current_traffic') else 0
+        state = env.state
+        capacity = sum(s.capacity for s in state.servers if s.is_active)
+
+        log_text = recent_log + "\n" + log_text
+        stats = f"Crashes: {state.total_crashes} | Cost: ${state.total_cost:.2f} | Reward: {state.total_reward}"
+
+        yield log_text, stats, f"Traffic: {traffic} | Capacity: {capacity}", "Running..."
+
+        time.sleep(0.1)  # Visualization pause
+
+        if obs.done:
+            info = obs.metadata.get("final_info", {})
+            grade = info.get("grade", "N/A")
+            score = info.get("normalized_score", 0.0)
+            yield log_text, stats, f"Done (Traffic: 0 | Capacity: {capacity})", f"Final Grade: {grade} ({score*100}%)"
+            break
+
+with gr.Blocks(theme=gr.themes.Soft()) as demo:
+    gr.Markdown("# ☁️ AI Cloud Server Manager UI\n\nMonitor your AI Agent as it manages server capacity to meet unpredictable traffic spikes!")
+
+    with gr.Row():
+        difficulty = gr.Dropdown(
+            choices=["Easy", "Medium", "Hard"],
+            value="Medium",
+            label="Task Difficulty"
+        )
+        start_btn = gr.Button("🚀 Start Agent Evaluation", variant="primary")
+
+    with gr.Row():
+        live = gr.Textbox(label="Live Traffic vs Capacity", placeholder="Traffic: 0 | Capacity: 0")
+        stats = gr.Textbox(label="Current Stats", placeholder="Crashes: 0 | Cost: $0")
+        grade = gr.Textbox(label="Status / Final Grade", placeholder="Ready")
+
+    logs = gr.Textbox(label="Agent Action Logs", lines=15, max_lines=15)
 
     start_btn.click(
         fn=run_simulation,
@@ -25,4 +94,5 @@ with gr.Blocks() as demo:
         outputs=[logs, stats, live, grade]
     )
 
-demo.launch(server_name="0.0.0.0", server_port=7860)
+if __name__ == "__main__":
+    demo.launch(server_name="0.0.0.0", server_port=7860)
