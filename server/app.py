@@ -8,7 +8,7 @@ from server.my_env_environment import CloudManagerEnv
 from models import Action
 import uvicorn
 
-app = FastAPI(title="Cloud Manager Environment API")
+app = FastAPI(title="Cloud Manager Environment API", root_path="/web")
 
 # Global environment instance
 env = None
@@ -41,4 +41,4 @@ def step(action: StepRequest):
     }
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8000, root_path="/web")
