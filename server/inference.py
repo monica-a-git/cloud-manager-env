@@ -6,7 +6,7 @@ from models import Action
 from server.my_env_environment import CloudManagerEnv
 
 API_BASE_URL = os.environ.get("API_BASE_URL")
-API_KEY = os.environ.get("API_KEY")
+API_KEY = os.environ.get("HF_TOKEN")
 MODEL_NAME = os.environ.get("MODEL_NAME")
 
 print("Inference loaded")
