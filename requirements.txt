@@ -1,4 +1,5 @@
 gradio==4.21.0
+huggingface_hub==0.19.4
 pydantic
 openai
 httpx
