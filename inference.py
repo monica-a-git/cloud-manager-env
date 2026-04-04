@@ -6,7 +6,7 @@ from huggingface_hub import InferenceClient
 from openenv.core.generic_client import GenericEnvClient
 
 HF_TOKEN = os.environ.get("HF_TOKEN")
-MODEL_NAME = os.environ.get("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
+MODEL_NAME = os.environ.get("MODEL_NAME")
 IMAGE_NAME = "cloud-env:latest"  # Assumes docker build -t cloud-env:latest . was run
 ENV_SERVER_URL = os.environ.get("ENV_SERVER_URL") # if deployed to HF
 TASKS = ["cloud-management-easy", "cloud-management-medium", "cloud-management-hard"]

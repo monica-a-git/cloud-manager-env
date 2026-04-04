@@ -9,7 +9,7 @@ from my_env.server.my_env_environment import CloudManagerEnv
 from my_env.models import Action, Observation
 
 HF_TOKEN = os.environ.get("HF_TOKEN")
-MODEL_NAME = os.environ.get("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
+MODEL_NAME = os.environ.get("MODEL_NAME")
 
 system_prompt = """
 You are a Cloud Infrastructure Manager.
