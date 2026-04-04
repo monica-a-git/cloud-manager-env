@@ -1,9 +1,15 @@
 FROM python:3.9-slim
+
 WORKDIR /app
-RUN pip install --upgrade pip
+
 COPY requirements.txt .
-RUN pip install -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
 COPY . .
 
-# Points to server/inference.py exactly where it sits in your image
-CMD ["python", "server/app.py"]
+# VERY IMPORTANT → HF expects port 7860
+ENV PORT=7860
+
+EXPOSE 7860
+
+CMD ["python", "app.py"]
