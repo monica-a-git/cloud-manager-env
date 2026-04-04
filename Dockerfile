@@ -5,5 +5,5 @@ COPY requirements.txt .
 RUN pip install -r requirements.txt
 COPY . .
 
-# Points to server/inference.py exactly where it sits in your image
-CMD ["python", "server/inference.py"]
+# Run the FastAPI server
+CMD ["uvicorn", "server.app:app", "--host", "0.0.0.0", "--port", "8000"]
