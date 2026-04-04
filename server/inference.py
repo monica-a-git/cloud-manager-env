@@ -35,6 +35,7 @@ def run_simulation(difficulty):
 
     client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
     env = CloudManagerEnv(difficulty=difficulty)
+    env.max_steps = 30
     obs = env.reset()
     
     traffic_history = []

@@ -5,7 +5,7 @@ from models import Server, Observation, Action, Reward, State
 class CloudManagerEnv:
     def __init__(self, difficulty: str = "Medium"):
         self.difficulty = difficulty.lower()
-        self.max_steps = 60 # 60 steps = ~4-5 minutes in real-time visualization
+        self.max_steps = 30 # 60 steps = ~4-5 minutes in real-time visualization
         
         # Define servers based on difficulty
         self.initial_servers =[

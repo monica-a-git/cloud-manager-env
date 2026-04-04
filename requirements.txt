@@ -3,5 +3,3 @@ huggingface_hub==0.20.3
 pydantic
 openai
 httpx
-fastapi
-uvicorn
