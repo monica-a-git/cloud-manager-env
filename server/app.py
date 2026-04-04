@@ -75,7 +75,7 @@ def run_simulation(difficulty):
             break
 
 with gr.Blocks() as demo:
-    gr.Markdown("# ☁️ AI Cloud Server Manager UI\n\nMonitor your AI Agent as it manages server capacity to meet unpredictable traffic spikes!")
+    gr.Markdown(f"# ☁️ AI Cloud Server Manager UI\n\n**Active Model:** `{MODEL_NAME}`\n\nMonitor your AI Agent as it manages server capacity to meet unpredictable traffic spikes!")
 
     with gr.Row():
         difficulty = gr.Dropdown(
