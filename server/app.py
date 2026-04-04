@@ -8,9 +8,9 @@ from openenv.core.env_server import create_app
 from my_env.server.my_env_environment import CloudManagerEnv
 from my_env.models import Action, Observation
 
-API_BASE_URL = os.environ.get("OPENAI_API_BASE", "https://api.openai.com/v1")
-API_KEY = os.environ.get("OPENAI_API_KEY", os.environ.get("HF_TOKEN", ""))
-MODEL_NAME = os.environ.get("MODEL_NAME", "gpt-4o-mini")
+API_BASE_URL = os.environ.get("API_BASE_URL", "https://api-inference.huggingface.co/v1/")
+HF_TOKEN = os.environ.get("HF_TOKEN")
+MODEL_NAME = os.environ.get("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
 
 system_prompt = """
 You are a Cloud Infrastructure Manager.
@@ -20,11 +20,11 @@ Valid commands: "start", "stop", "none".
 """
 
 def run_simulation(difficulty):
-    if not API_KEY:
-        yield "Missing OPENAI_API_KEY", "", "", "ERROR"
+    if not HF_TOKEN:
+        yield "Missing HF_TOKEN", "", "", "ERROR"
         return
 
-    client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
+    client = OpenAI(base_url=API_BASE_URL, api_key=HF_TOKEN)
     task_name = f"cloud-management-{difficulty.lower()}"
     
     env = CloudManagerEnv(task_name=task_name)
@@ -34,18 +34,23 @@ def run_simulation(difficulty):
     
     for step in range(env.max_steps):
         try:
+            import re
             response = client.chat.completions.create(
                 model=MODEL_NAME,
-                response_format={"type": "json_object"},
                 messages=[
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": f"Observation: {obs.model_dump_json()}"}
+                    {"role": "user", "content": f"Observation: {obs.model_dump_json()}\nOutput STRICTLY only raw valid JSON without markdown backticks."}
                 ],
                 temperature=0.0
             )
-            action_data = json.loads(response.choices[0].message.content)
+            text = response.choices[0].message.content.strip()
+            match = re.search(r'\{.*\}', text, re.DOTALL)
+            if match:
+                text = match.group(0)
+            action_data = json.loads(text)
             action = Action(**action_data)
         except Exception as e:
+            log_text = f"API FAIL: {str(e)}\n" + log_text
             print("LLM ERROR:", e)
             action = Action(target_server_id="none", command="none")
 

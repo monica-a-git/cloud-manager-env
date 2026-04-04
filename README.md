@@ -62,7 +62,7 @@ This environment offers 3 scaling tasks out-of-the-box graded rigorously on 30 s
 
 You can run the interactive **Evaluation Script** locally passing your API configurations in order to validate scores and execution logic:
 ```bash
-OPENAI_API_KEY="sk-..." MODEL_NAME="gpt-4o-mini" python baseline.py
+OPENAI_API_KEY="sk-..." MODEL_NAME="gpt-4o-mini" python inference.py
 ```
 
 Want to view it visually? Use the Gradio App!
@@ -76,6 +76,6 @@ It uses standard OpenEnv integration so you can push directly to a HF Space (Ope
 ```bash
 pip install huggingface_hub
 huggingface-cli login
-openenv push --repo-id my-org/cloud-ai-env
+openenv push --repo-id a-monica/cloud-manager
 ```
 This pushes your environment automatically configured perfectly to test multi-model inference against the OpenEnv spec.

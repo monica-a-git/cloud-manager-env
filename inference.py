@@ -5,9 +5,9 @@ from typing import List, Dict, Any
 from openai import OpenAI
 from openenv.core.generic_client import GenericEnvClient
 
-API_BASE_URL = os.environ.get("API_BASE_URL", "https://api.openai.com/v1")
-API_KEY = os.environ.get("OPENAI_API_KEY", os.environ.get("HF_TOKEN", ""))
-MODEL_NAME = os.environ.get("MODEL_NAME", "gpt-4o-mini")
+API_BASE_URL = os.environ.get("API_BASE_URL", "https://api-inference.huggingface.co/v1/")
+HF_TOKEN = os.environ.get("HF_TOKEN")
+MODEL_NAME = os.environ.get("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
 IMAGE_NAME = "cloud-env:latest"  # Assumes docker build -t cloud-env:latest . was run
 ENV_SERVER_URL = os.environ.get("ENV_SERVER_URL") # if deployed to HF
 TASKS = ["cloud-management-easy", "cloud-management-medium", "cloud-management-hard"]
@@ -21,18 +21,21 @@ def get_model_message(client: OpenAI, step: int, last_obs: Dict[str, Any], last_
     user_prompt = f"Current Obs: {json.dumps(last_obs)}. Last Reward: {last_reward}. Provide your action strictly in JSON format. Example: {{\\\"target_server_id\\\": \\\"web-2\\\", \\\"command\\\": \\\"start\\\"}}. You can use 'start', 'stop', or 'none'. Target IDs: web-1, web-2, web-3, db-1."
     
     try:
-        completion = client.chat.completions.create(
+        import re
+        response = client.chat.completions.create(
             model=MODEL_NAME,
-            response_format={"type": "json_object"},
             messages=[
                 {"role": "system", "content": sys_prompt},
-                {"role": "user", "content": user_prompt}
+                {"role": "user", "content": user_prompt + "\nOutput STRICTLY only raw valid JSON without markdown backticks."}
             ],
             temperature=TEMPERATURE,
             max_tokens=MAX_TOKENS,
             stream=False,
         )
-        text = (completion.choices[0].message.content or "").strip()
+        text = response.choices[0].message.content.strip()
+        match = re.search(r'\{.*\}', text, re.DOTALL)
+        if match:
+            text = match.group(0)
         return json.loads(text) if text else {"target_server_id": "none", "command": "none"}
     except Exception as exc:
         print(f"[DEBUG] Model request failed: {exc}", flush=True)
@@ -119,10 +122,10 @@ async def run_task(client: OpenAI, task_name: str) -> None:
         log_end(success=success, steps=steps_taken, score=score, rewards=rewards)
 
 async def main() -> None:
-    if not API_KEY:
-        print("Set OPENAI_API_KEY environment variable. Proceeding with dummy key for debug syntax check...")
+    if not HF_TOKEN:
+        print("Set HF_TOKEN environment variable. Proceeding with dummy key for debug syntax check...")
 
-    openai_client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY or "dummy")
+    openai_client = OpenAI(base_url=API_BASE_URL, api_key=HF_TOKEN or "dummy")
 
     for task in TASKS:
         await run_task(openai_client, task)
