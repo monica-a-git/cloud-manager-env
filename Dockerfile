@@ -6,4 +6,4 @@ RUN pip install -r requirements.txt
 COPY . .
 
 # Points to server/inference.py exactly where it sits in your image
-CMD ["python", "server/inference.py"]
+CMD ["python", "server/app.py"]
