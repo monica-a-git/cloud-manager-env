@@ -3,12 +3,11 @@ import json
 import time
 import gradio as gr
 from fastapi import FastAPI
-from openai import OpenAI
+from huggingface_hub import InferenceClient
 from openenv.core.env_server import create_app
 from my_env.server.my_env_environment import CloudManagerEnv
 from my_env.models import Action, Observation
 
-API_BASE_URL = os.environ.get("API_BASE_URL", "https://api-inference.huggingface.co/v1/")
 HF_TOKEN = os.environ.get("HF_TOKEN")
 MODEL_NAME = os.environ.get("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
 
@@ -24,7 +23,7 @@ def run_simulation(difficulty):
         yield "Missing HF_TOKEN", "", "", "ERROR"
         return
 
-    client = OpenAI(base_url=API_BASE_URL, api_key=HF_TOKEN)
+    client = InferenceClient(token=HF_TOKEN)
     task_name = f"cloud-management-{difficulty.lower()}"
     
     env = CloudManagerEnv(task_name=task_name)
@@ -35,7 +34,7 @@ def run_simulation(difficulty):
     for step in range(env.max_steps):
         try:
             import re
-            response = client.chat.completions.create(
+            response = client.chat_completion(
                 model=MODEL_NAME,
                 messages=[
                     {"role": "system", "content": system_prompt},

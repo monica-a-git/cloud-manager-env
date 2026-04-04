@@ -2,10 +2,9 @@ import os
 import asyncio
 import json
 from typing import List, Dict, Any
-from openai import OpenAI
+from huggingface_hub import InferenceClient
 from openenv.core.generic_client import GenericEnvClient
 
-API_BASE_URL = os.environ.get("API_BASE_URL", "https://api-inference.huggingface.co/v1/")
 HF_TOKEN = os.environ.get("HF_TOKEN")
 MODEL_NAME = os.environ.get("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
 IMAGE_NAME = "cloud-env:latest"  # Assumes docker build -t cloud-env:latest . was run
@@ -16,13 +15,13 @@ TEMPERATURE = 0.0
 MAX_TOKENS = 512
 SUCCESS_SCORE_THRESHOLD = 0.8  # 80% score threshold
 
-def get_model_message(client: OpenAI, step: int, last_obs: Dict[str, Any], last_reward: float, task_name: str) -> Dict[str, Any]:
+def get_model_message(client: InferenceClient, step: int, last_obs: Dict[str, Any], last_reward: float, task_name: str) -> Dict[str, Any]:
     sys_prompt = f"You are an automated Cloud AI infrastructure manager. Task: {task_name}. You must scale servers dynamically with unpredictable traffic spikes and drops to prevent crashes while minimizing costs. Maximize uptime efficiency."
     user_prompt = f"Current Obs: {json.dumps(last_obs)}. Last Reward: {last_reward}. Provide your action strictly in JSON format. Example: {{\\\"target_server_id\\\": \\\"web-2\\\", \\\"command\\\": \\\"start\\\"}}. You can use 'start', 'stop', or 'none'. Target IDs: web-1, web-2, web-3, db-1."
     
     try:
         import re
-        response = client.chat.completions.create(
+        response = client.chat_completion(
             model=MODEL_NAME,
             messages=[
                 {"role": "system", "content": sys_prompt},
@@ -57,7 +56,7 @@ def log_end(success: bool, steps: int, score: float, rewards: List[float]):
     print(f"Steps: {steps}")
     print(f"Total Trajectory Reward: {sum(rewards)}")
 
-async def run_task(client: OpenAI, task_name: str) -> None:
+async def run_task(client: InferenceClient, task_name: str) -> None:
     if ENV_SERVER_URL:
         # Connecting directly to a running HF space or local FastAPI
         env = GenericEnvClient(base_url=ENV_SERVER_URL)
@@ -125,7 +124,7 @@ async def main() -> None:
     if not HF_TOKEN:
         print("Set HF_TOKEN environment variable. Proceeding with dummy key for debug syntax check...")
 
-    openai_client = OpenAI(base_url=API_BASE_URL, api_key=HF_TOKEN or "dummy")
+    openai_client = InferenceClient(token=HF_TOKEN or "dummy")
 
     for task in TASKS:
         await run_task(openai_client, task)
