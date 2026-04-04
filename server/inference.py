@@ -17,6 +17,10 @@ API_BASE_URL = os.environ.get("API_BASE_URL")
 API_KEY = os.environ.get("HF_TOKEN")
 MODEL_NAME = os.environ.get("MODEL_NAME")
 
+print("=== APP STARTING ===")
+print("API_BASE_URL:", API_BASE_URL)
+print("MODEL_NAME:", MODEL_NAME)
+
 system_prompt = """
 You are a Cloud Infrastructure Manager. 
 GOAL: Keep active server capacity slightly above traffic. 
@@ -58,6 +62,7 @@ def run_simulation(difficulty):
             raw_ai_response = response.choices[0].message.content
             action_data = json.loads(raw_ai_response)
         except Exception as e:
+            print("LLM ERROR:", str(e))
             action_data = {"target_server_id": "none", "command": "none"}
             
         action = Action(
@@ -87,7 +92,7 @@ def run_simulation(difficulty):
         )
         
         # Sleep for 4 seconds so the user can watch it happen (60 steps * 4s = 4 minutes)
-        time.sleep(4)
+        time.sleep(0.2)
         
     # 5. Final Grade
     final_grade = f"FINAL GRADE: {info['grade']} | Uptime: {info['uptime_pct']}% | Efficiency: {info['efficiency_pct']}%"
