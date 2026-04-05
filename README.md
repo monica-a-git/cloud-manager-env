@@ -62,12 +62,12 @@ This environment offers 3 scaling tasks out-of-the-box graded rigorously on 30 s
 
 You can run the interactive **Evaluation Script** locally passing your API configurations in order to validate scores and execution logic:
 ```bash
-OPENAI_API_KEY="sk-..." MODEL_NAME="gpt-4o-mini" python inference.py
+API_KEY="hf..." MODEL_NAME="gpt-4o-mini" python inference.py
 ```
 
 Want to view it visually? Use the Gradio App!
 ```bash
-OPENAI_API_KEY="sk-..." python app.py
+API_KEY="hf..." python app.py
 ```
 
 ## Docker Deploy (Hugging Face)
@@ -76,6 +76,11 @@ It uses standard OpenEnv integration so you can push directly to a HF Space (Ope
 ```bash
 pip install huggingface_hub
 huggingface-cli login
-openenv push --repo-id a-monica/cloud-manager
+openenv push --repo-id user-name/cloud-manager
 ```
 This pushes your environment automatically configured perfectly to test multi-model inference against the OpenEnv spec.
+
+
+## AI AGENT SECIFICATIONS
+
+The AI Agent should be a Text generation - chat based model. It should be able to understand the environment and act accordingly. It should be able to generate JSON output in the format specified by the environment. 
