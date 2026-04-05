@@ -2,26 +2,31 @@ import os
 import asyncio
 import json
 from typing import List, Dict, Any
-from huggingface_hub import InferenceClient
+from openai import OpenAI
 from openenv.core.generic_client import GenericEnvClient
 
-HF_TOKEN = os.environ.get("HF_TOKEN")
-MODEL_NAME = os.environ.get("MODEL_NAME")
-IMAGE_NAME = "cloud-env:latest"  # Assumes docker build -t cloud-env:latest . was run
-ENV_SERVER_URL = os.environ.get("ENV_SERVER_URL") # if deployed to HF
+API_BASE_URL = os.getenv("API_BASE_URL", "https://api-inference.huggingface.co/v1/")
+MODEL_NAME = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
+HF_TOKEN = os.getenv("HF_TOKEN")
+
+# Optional — if you use from_docker_image():
+LOCAL_IMAGE_NAME = os.getenv("LOCAL_IMAGE_NAME")
+IMAGE_NAME = LOCAL_IMAGE_NAME if LOCAL_IMAGE_NAME else "cloud-env:latest"
+
+ENV_SERVER_URL = os.getenv("ENV_SERVER_URL") # if deployed to HF
 TASKS = ["cloud-management-easy", "cloud-management-medium", "cloud-management-hard"]
 MAX_STEPS = 30
 TEMPERATURE = 0.0
 MAX_TOKENS = 512
 SUCCESS_SCORE_THRESHOLD = 0.8  # 80% score threshold
 
-def get_model_message(client: InferenceClient, step: int, last_obs: Dict[str, Any], last_reward: float, task_name: str) -> Dict[str, Any]:
+def get_model_message(client: OpenAI, step: int, last_obs: Dict[str, Any], last_reward: float, task_name: str) -> Dict[str, Any]:
     sys_prompt = f"You are an automated Cloud AI infrastructure manager. Task: {task_name}. You must scale servers dynamically with unpredictable traffic spikes and drops to prevent crashes while minimizing costs. Maximize uptime efficiency."
     user_prompt = f"Current Obs: {json.dumps(last_obs)}. Last Reward: {last_reward}. Provide your action strictly in JSON format. Example: {{\\\"target_server_id\\\": \\\"web-2\\\", \\\"command\\\": \\\"start\\\"}}. You can use 'start', 'stop', or 'none'. Target IDs: web-1, web-2, web-3, db-1."
     
     try:
         import re
-        response = client.chat_completion(
+        response = client.chat.completions.create(
             model=MODEL_NAME,
             messages=[
                 {"role": "system", "content": sys_prompt},
@@ -124,7 +129,7 @@ async def main() -> None:
     if not HF_TOKEN:
         print("Set HF_TOKEN environment variable. Proceeding with dummy key for debug syntax check...")
 
-    openai_client = InferenceClient(token=HF_TOKEN or "dummy")
+    openai_client = InferenceClient(base_url=API_BASE_URL, token=HF_TOKEN or "dummy")
 
     for task in TASKS:
         await run_task(openai_client, task)
