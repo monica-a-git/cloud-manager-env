@@ -5,7 +5,7 @@ from typing import List, Dict, Any
 from openai import OpenAI
 from openenv.core.generic_client import GenericEnvClient
 
-API_BASE_URL = os.getenv("API_BASE_URL", "https://api-inference.huggingface.co/v1/")
+API_BASE_URL = os.getenv("API_BASE_URL", "https://api-inference.huggingface.co/v1")
 MODEL_NAME = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
 HF_TOKEN = os.getenv("HF_TOKEN")
 
@@ -61,7 +61,7 @@ def log_end(success: bool, steps: int, score: float, rewards: List[float]):
     print(f"Steps: {steps}")
     print(f"Total Trajectory Reward: {sum(rewards)}")
 
-async def run_task(client: InferenceClient, task_name: str) -> None:
+async def run_task(client: OpenAI, task_name: str) -> None:
     if ENV_SERVER_URL:
         # Connecting directly to a running HF space or local FastAPI
         env = GenericEnvClient(base_url=ENV_SERVER_URL)
@@ -129,7 +129,7 @@ async def main() -> None:
     if not HF_TOKEN:
         print("Set HF_TOKEN environment variable. Proceeding with dummy key for debug syntax check...")
 
-    openai_client = InferenceClient(base_url=API_BASE_URL, token=HF_TOKEN or "dummy")
+    openai_client = OpenAI(base_url=API_BASE_URL, api_key=HF_TOKEN or "dummy")
 
     for task in TASKS:
         await run_task(openai_client, task)
