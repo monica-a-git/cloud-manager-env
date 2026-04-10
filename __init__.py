@@ -1,4 +1,4 @@
- Copyright (c) Meta Platforms, Inc. and affiliates.
+# Copyright (c) Meta Platforms, Inc. and affiliates.
 # All rights reserved.
 #
 # This source code is licensed under the BSD-style license found in the
@@ -6,11 +6,11 @@
 
 """My Env Environment."""
 
-from .client import MyEnv
-from .models import MyAction, MyObservation
+from .server.my_env_environment import CloudManagerEnv
+from .models import Action, Observation
 
 __all__ = [
-    "MyAction",
-    "MyObservation",
-    "MyEnv",
+    "Action",
+    "Observation",
+    "CloudManagerEnv",
 ]
