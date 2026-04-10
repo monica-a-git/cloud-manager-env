@@ -62,67 +62,75 @@ def log_end(success: bool, steps: int, score: float, rewards: List[float]):
     print(f"Total Trajectory Reward: {sum(rewards)}")
 
 async def run_task(client: OpenAI, task_name: str) -> None:
-    if ENV_SERVER_URL:
-        # Connecting directly to a running HF space or local FastAPI
-        env = GenericEnvClient(base_url=ENV_SERVER_URL)
-    else:
-        # Spin up a docker container for isolated evaluation
-        env = await GenericEnvClient.from_docker_image(IMAGE_NAME, env_vars={"TASK_NAME": task_name})
-
-    history: List[str] = []
+    env = None
     rewards: List[float] = []
     steps_taken = 0
     score = 0.0
     success = False
 
-    log_start(task=task_name, env="CloudManagerEnv", model=MODEL_NAME)
-
     try:
-        # Note: GenericEnvClient reset accepts arbitrary dict.
-        result = await env.reset() # This returns a StepResult with observation
-        last_obs = result.observation
-        last_reward = 0.0
+        if ENV_SERVER_URL:
+            # Connecting directly to a running HF space or local FastAPI
+            env = GenericEnvClient(base_url=ENV_SERVER_URL)
+        else:
+            # Spin up a docker container for isolated evaluation
+            try:
+                env = await GenericEnvClient.from_docker_image(IMAGE_NAME, env_vars={"TASK_NAME": task_name})
+            except Exception as e:
+                print(f"[ERROR] Docker startup failed for {task_name}: {e}")
+                log_end(success=False, steps=0, score=0.0, rewards=[])
+                return
 
-        for step in range(1, MAX_STEPS + 1):
-            if result.done:
-                break
+        log_start(task=task_name, env="CloudManagerEnv", model=MODEL_NAME)
 
-            action_data = get_model_message(client, step, last_obs, last_reward, task_name)
-
-            result = await env.step(action_data)
-            obs = result.observation
-
-            reward = result.reward or 0.0
-            done = result.done
-            error = None # from generic client if errors occur they raise exceptions usually
-
-            rewards.append(reward)
-            steps_taken = step
-            last_obs = obs
-            last_reward = reward
-
-            log_step(step=step, action=action_data, reward=reward, done=done, error=error)
-
-            history.append(f"Step {step}: {action_data} -> reward {reward:+.2f}")
-
-            if done:
-                # The final metadata from CloudManagerEnv will hold the normalized score
-                final_info = obs.get("metadata", {}).get("final_info", {})
-                score = final_info.get("normalized_score", 0.0)
-                break
-
-        # Override score with fallback calculation if missing from metadata
-        if score == 0.0:
-            score = sum(rewards) / (MAX_STEPS * 2.0) # approx max total reward
-            score = min(max(score, 0.0), 1.0)  # clamp to [0, 1]
-
-        success = score >= SUCCESS_SCORE_THRESHOLD
-
-    finally:
         try:
-            await env.close()
+            # Note: GenericEnvClient reset accepts arbitrary dict.
+            result = await env.reset() # This returns a StepResult with observation
+            last_obs = result.observation
+            last_reward = 0.0
+
+            for step in range(1, MAX_STEPS + 1):
+                if result.done:
+                    break
+
+                action_data = get_model_message(client, step, last_obs, last_reward, task_name)
+
+                result = await env.step(action_data)
+                obs = result.observation
+
+                reward = result.reward or 0.0
+                done = result.done
+                error = None 
+
+                rewards.append(reward)
+                steps_taken = step
+                last_obs = obs
+                last_reward = reward
+
+                log_step(step=step, action=action_data, reward=reward, done=done, error=error)
+
+                if done:
+                    # The final metadata from CloudManagerEnv will hold the normalized score
+                    final_info = obs.get("metadata", {}).get("final_info", {})
+                    score = final_info.get("normalized_score", 0.0)
+                    break
+
+            # Override score with fallback calculation if missing from metadata
+            if score == 0.0:
+                score = sum(rewards) / (MAX_STEPS * 2.0) # approx max total reward
+                score = min(max(score, 0.0), 1.0)  # clamp to [0, 1]
+
+            success = score >= SUCCESS_SCORE_THRESHOLD
+
         except Exception as e:
-            print(f"[DEBUG] env.close() error (container cleanup): {e}", flush=True)
+            print(f"[ERROR] Exception during task execution: {e}")
+        
+    finally:
+        if env:
+            try:
+                await env.close()
+            except Exception as e:
+                print(f"[DEBUG] env.close() error: {e}", flush=True)
         log_end(success=success, steps=steps_taken, score=score, rewards=rewards)
 
 async def main() -> None:

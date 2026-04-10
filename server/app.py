@@ -111,9 +111,7 @@ app = gr.mount_gradio_app(base_app, demo, path="/")
 
 def main():
     import uvicorn
-    # Make sure to launch with the theme!
-    demo.launch(server_name="0.0.0.0", server_port=7860, theme=gr.themes.Soft(), prevent_thread_lock=True)
-    uvicorn.run("my_env.server.app:app", host="0.0.0.0", port=7860, reload=True)
+    uvicorn.run("my_env.server.app:app", host="0.0.0.0", port=8000, reload=True)
 
 if __name__ == "__main__":
     main()

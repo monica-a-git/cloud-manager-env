@@ -7,6 +7,7 @@ sdk: docker
 pinned: false
 tags:
   - openenv
+app_port: 8000
 ---
 
 # Cloud AI Manager OpenEnv ☁️
