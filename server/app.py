@@ -8,7 +8,7 @@ from openenv.core.env_server import create_app
 from my_env.server.my_env_environment import CloudManagerEnv
 from my_env.models import Action, Observation
 
-HF_TOKEN = os.environ.get("HF_TOKEN")
+HF_TOKEN = os.environ.get("HF_TOKEN") or os.environ.get("API_KEY")
 MODEL_NAME = os.environ.get("MODEL_NAME")
 
 system_prompt = """
