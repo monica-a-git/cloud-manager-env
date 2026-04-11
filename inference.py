@@ -6,8 +6,9 @@ from openai import OpenAI
 from openenv.core.generic_client import GenericEnvClient
 
 API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
+API_KEY = os.getenv("HF_TOKEN") or os.getenv("API_KEY")
 MODEL_NAME = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
-HF_TOKEN = os.getenv("HF_TOKEN")
+BENCHMARK = "CloudManagerEnv"
 
 # Optional — if you use from_docker_image():
 LOCAL_IMAGE_NAME = os.getenv("LOCAL_IMAGE_NAME")
@@ -20,13 +21,13 @@ TEMPERATURE = 0.0
 MAX_TOKENS = 512
 SUCCESS_SCORE_THRESHOLD = 0.8  # 80% score threshold
 
-def get_model_message(client: OpenAI, step: int, last_obs: Dict[str, Any], last_reward: float, task_name: str, history: List[str]) -> Dict[str, Any]:
+def get_model_message(client: OpenAI, step: int, last_obs: Dict[str, Any], last_reward: float, history: List[str], task_name: str) -> Dict[str, Any]:
     sys_prompt = f"You are an automated Cloud AI infrastructure manager. Task: {task_name}. You must scale servers dynamically with unpredictable traffic spikes and drops to prevent crashes while minimizing costs. Maximize uptime efficiency."
     user_prompt = f"Current Obs: {json.dumps(last_obs)}. Last Reward: {last_reward}. History: {history}. Provide your action strictly in JSON format. Example: {{\\\"target_server_id\\\": \\\"web-2\\\", \\\"command\\\": \\\"start\\\"}}. You can use 'start', 'stop', or 'none'. Target IDs: web-1, web-2, web-3, db-1."
     
     try:
         import re
-        response = client.chat.completions.create(
+        completion = client.chat.completions.create(
             model=MODEL_NAME,
             messages=[
                 {"role": "system", "content": sys_prompt},
@@ -36,7 +37,7 @@ def get_model_message(client: OpenAI, step: int, last_obs: Dict[str, Any], last_
             max_tokens=MAX_TOKENS,
             stream=False,
         )
-        text = response.choices[0].message.content.strip()
+        text = (completion.choices[0].message.content or "").strip()
         match = re.search(r'\{.*\}', text, re.DOTALL)
         if match:
             text = match.group(0)
@@ -49,7 +50,7 @@ def log_start(task: str, env: str, model: str):
     print(f"[START] task={task} env={env} model={model}", flush=True)
 
 def log_step(step: int, action: Any, reward: float, done: bool, error: Any = None):
-    print(f"[STEP] step={step} reward={reward}", flush=True)
+    print(f"[STEP] step={step} reward={reward} action={action} done={done} error={error}", flush=True)
 
 def log_end(task: str, success: bool, steps: int, score: float, rewards: List[float]):
     print(f"[END] task={task} score={score} steps={steps}", flush=True)
@@ -63,7 +64,7 @@ async def run_task(client: OpenAI, task_name: str) -> None:
     success = False
 
     try:
-        log_start(task=task_name, env="CloudManagerEnv", model=MODEL_NAME)
+        log_start(task=task_name, env=BENCHMARK, model=MODEL_NAME)
 
         if ENV_SERVER_URL:
             env = GenericEnvClient(base_url=ENV_SERVER_URL)
@@ -83,7 +84,7 @@ async def run_task(client: OpenAI, task_name: str) -> None:
                 if result.done:
                     break
 
-                action_data = get_model_message(client, step, last_obs, last_reward, task_name, history)
+                action_data = get_model_message(client, step, last_obs, last_reward, history, task_name)
 
                 result = await env.step(action_data)
                 obs = result.observation
@@ -106,8 +107,8 @@ async def run_task(client: OpenAI, task_name: str) -> None:
 
             if score == 0.0:
                 score = sum(rewards) / (MAX_STEPS * 1.0) # approx normalization
-                score = min(max(score, 0.0), 1.0)
-
+            
+            score = min(max(score, 0.0), 1.0)
             success = score >= SUCCESS_SCORE_THRESHOLD
 
         except Exception as e:
@@ -122,10 +123,10 @@ async def run_task(client: OpenAI, task_name: str) -> None:
         log_end(task=task_name, success=success, steps=steps_taken, score=score, rewards=rewards)
 
 async def main() -> None:
-    if not HF_TOKEN:
-        print("Set HF_TOKEN environment variable. Proceeding with dummy key for debug syntax check...")
+    if not API_KEY:
+        print("Set API_KEY or HF_TOKEN environment variable. Proceeding with dummy key for debug syntax check...")
 
-    openai_client = OpenAI(base_url=API_BASE_URL, api_key=HF_TOKEN or "dummy")
+    openai_client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY or "dummy")
 
     for task in TASKS:
         await run_task(openai_client, task)
