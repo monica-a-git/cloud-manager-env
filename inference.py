@@ -71,7 +71,15 @@ async def run_task(client: OpenAI, task_name: str) -> None:
             env = GenericEnvClient(base_url=ENV_SERVER_URL)
         else:
             try:
-                env = await GenericEnvClient.from_docker_image(IMAGE_NAME, env_vars={"TASK_NAME": task_name})
+                env = await GenericEnvClient.from_docker_image(
+                    IMAGE_NAME, 
+                    env_vars={
+                        "TASK_NAME": task_name,
+                        "API_BASE_URL": API_BASE_URL,
+                        "API_KEY": API_KEY,
+                        "MODEL_NAME": MODEL_NAME
+                    }
+                )
             except Exception as e:
                 print(f"[ERROR] Docker startup failed for {task_name}: {e}", flush=True)
                 return

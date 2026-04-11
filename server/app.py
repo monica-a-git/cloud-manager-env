@@ -10,7 +10,7 @@ from my_env.models import Action, Observation
 
 API_BASE_URL = os.environ.get("API_BASE_URL")
 API_KEY = os.environ.get("API_KEY") or os.environ.get("HF_TOKEN")
-MODEL_NAME = os.environ.get("MODEL_NAME")
+MODEL_NAME = os.environ.get("MODEL_NAME") or "Qwen/Qwen2.5-72B-Instruct"
 
 system_prompt = """
 You are a Cloud Infrastructure Manager.
@@ -20,12 +20,8 @@ Valid commands: "start", "stop", "none".
 """
 
 def run_simulation(difficulty):
-    if not API_KEY:
-        yield "Missing API_KEY or HF_TOKEN", "", "", "ERROR"
-        return
-    
-    if not API_BASE_URL:
-        yield "Missing API_BASE_URL proxy variable", "", "", "ERROR"
+    if not API_KEY or not API_BASE_URL:
+        yield "Missing required environment variables (API_KEY, API_BASE_URL). Ensure they are passed to the container.", "", "", "ERROR"
         return
 
     client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
