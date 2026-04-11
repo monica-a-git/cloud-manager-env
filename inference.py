@@ -84,8 +84,8 @@ async def run_task(client: OpenAI, task_name: str) -> None:
                     }
                 )
             except Exception as e:
-                print(f"[ERROR] Docker startup failed for {task_name}: {e}", flush=True)
-                return
+                # Crash violently so the Evaluator doesn't think the run "completed successfully" if Docker natively fails
+                raise RuntimeError(f"FATAL: Docker startup failed for {task_name}! Evaluator image name logic might be flawed: {e}")
 
         try:
             result = await env.reset() 
@@ -124,7 +124,8 @@ async def run_task(client: OpenAI, task_name: str) -> None:
             success = score >= SUCCESS_SCORE_THRESHOLD
 
         except Exception as e:
-            print(f"[ERROR] Exception during task execution: {e}", flush=True)
+            # Crash violently so the Evaluator sees if inference aborted halfway!
+            raise RuntimeError(f"FATAL: Exception during task execution! {e}")
         
     finally:
         if env:
