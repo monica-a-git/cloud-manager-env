@@ -51,9 +51,7 @@ def run_simulation(difficulty):
             action_data = json.loads(text)
             action = Action(**action_data)
         except Exception as e:
-            log_text = f"API FAIL: {str(e)}\n" + log_text
-            print("LLM ERROR:", e)
-            action = Action(target_server_id="none", command="none")
+            raise RuntimeError(f"FATAL: LLM Proxy Error: {str(e)}")
 
         obs = env.step(action)
         

@@ -44,8 +44,8 @@ def get_model_message(client: OpenAI, step: int, last_obs: Dict[str, Any], last_
             text = match.group(0)
         return json.loads(text) if text else {"target_server_id": "none", "command": "none"}
     except Exception as exc:
-        print(f"[DEBUG] Model request failed: {exc}", flush=True)
-        return {"target_server_id": "none", "command": "none"}
+        # Crash violently so the Evaluator sees the proxy failure!
+        raise RuntimeError(f"FATAL: Proxy connection failed! {exc}")
 
 def log_start(task: str, env: str, model: str):
     print(f"[START] task={task} env={env} model={model}", flush=True)
