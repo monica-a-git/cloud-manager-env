@@ -6,8 +6,8 @@ from openai import OpenAI
 from openenv.core.generic_client import GenericEnvClient
 
 # STRICT: Use environment variables injected by the evaluation system
-API_BASE_URL = os.environ["API_BASE_URL"] or "https://router.huggingface.co/v1"
-API_KEY = os.environ["HF_TOKEN"] or os.environ["API_KEY"]
+API_BASE_URL = os.environ.get("API_BASE_URL") or "https://router.huggingface.co/v1"
+API_KEY = os.environ.get("API_KEY") or os.environ.get("HF_TOKEN")
 MODEL_NAME = os.getenv("MODEL_NAME") or "Qwen/Qwen2.5-72B-Instruct"
 BENCHMARK = "CloudManagerEnv"
 
@@ -28,6 +28,9 @@ def get_model_message(client: OpenAI, step: int, last_obs: Dict[str, Any], last_
     
     try:
         import re
+        api_snippet = client.api_key[:6] + "..." if client.api_key else "None"
+        print(f"[DEBUG-CREDENTIALS] Sending request to {client.base_url} with Key: {api_snippet} for model {MODEL_NAME}", flush=True)
+
         completion = client.chat.completions.create(
             model=MODEL_NAME,
             messages=[
