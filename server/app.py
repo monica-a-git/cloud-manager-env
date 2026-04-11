@@ -103,7 +103,7 @@ base_app = create_app(
     CloudManagerEnv,
     Action,
     Observation,
-    max_concurrent_envs=10
+    max_concurrent_envs=int(os.environ.get("MAX_CONCURRENT_ENVS", 100))
 )
 
 # 2. Mount Gradio interface onto the server
