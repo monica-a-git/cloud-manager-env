@@ -5,9 +5,10 @@ from typing import List, Dict, Any
 from openai import OpenAI
 from openenv.core.generic_client import GenericEnvClient
 
-API_BASE_URL = os.environ["API_BASE_URL"] or "https://router.huggingface.co/v1"
-API_KEY = os.environ["HF_TOKEN"] or os.environ["API_KEY"]
-MODEL_NAME = os.getenv("MODEL_NAME") or "Qwen/Qwen2.5-72B-Instruct"
+# STRICT: Use environment variables injected by the evaluation system
+API_BASE_URL = os.environ.get("API_BASE_URL") or os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
+API_KEY = os.environ.get("API_KEY") or os.environ.get("HF_TOKEN")
+MODEL_NAME = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
 BENCHMARK = "CloudManagerEnv"
 
 # Optional — if you use from_docker_image():
@@ -126,7 +127,11 @@ async def main() -> None:
     if not API_KEY:
         print("Set API_KEY or HF_TOKEN environment variable. Proceeding with dummy key for debug syntax check...")
 
-    openai_client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY or "dummy")
+    # STRICT: Follow the 'HOW TO FIX' instructions exactly for evaluation
+    base_url = os.environ.get("API_BASE_URL") or API_BASE_URL
+    api_key = os.environ.get("API_KEY") or API_KEY or "dummy"
+    
+    openai_client = OpenAI(base_url=base_url, api_key=api_key)
 
     for task in TASKS:
         await run_task(openai_client, task)
