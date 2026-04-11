@@ -20,9 +20,9 @@ TEMPERATURE = 0.0
 MAX_TOKENS = 512
 SUCCESS_SCORE_THRESHOLD = 0.8  # 80% score threshold
 
-def get_model_message(client: OpenAI, step: int, last_obs: Dict[str, Any], last_reward: float, task_name: str) -> Dict[str, Any]:
+def get_model_message(client: OpenAI, step: int, last_obs: Dict[str, Any], last_reward: float, task_name: str, history: List[str]) -> Dict[str, Any]:
     sys_prompt = f"You are an automated Cloud AI infrastructure manager. Task: {task_name}. You must scale servers dynamically with unpredictable traffic spikes and drops to prevent crashes while minimizing costs. Maximize uptime efficiency."
-    user_prompt = f"Current Obs: {json.dumps(last_obs)}. Last Reward: {last_reward}. Provide your action strictly in JSON format. Example: {{\\\"target_server_id\\\": \\\"web-2\\\", \\\"command\\\": \\\"start\\\"}}. You can use 'start', 'stop', or 'none'. Target IDs: web-1, web-2, web-3, db-1."
+    user_prompt = f"Current Obs: {json.dumps(last_obs)}. Last Reward: {last_reward}. History: {history}. Provide your action strictly in JSON format. Example: {{\\\"target_server_id\\\": \\\"web-2\\\", \\\"command\\\": \\\"start\\\"}}. You can use 'start', 'stop', or 'none'. Target IDs: web-1, web-2, web-3, db-1."
     
     try:
         import re
@@ -46,46 +46,36 @@ def get_model_message(client: OpenAI, step: int, last_obs: Dict[str, Any], last_
         return {"target_server_id": "none", "command": "none"}
 
 def log_start(task: str, env: str, model: str):
-    print(f"\n==========================================")
-    print(f"[{task}] STARTING EVAL | Env: {env} | Model: {model}")
-    print(f"==========================================")
+    print(f"[START] task={task} env={env} model={model}", flush=True)
 
-def log_step(step: int, action: Dict[str, Any], reward: float, done: bool, error: Any):
-    action_str = f"{action.get('command')} -> {action.get('target_server_id')}"
-    print(f"Step {step:02d} | Action: {action_str:20} | Reward: {reward:+.1f} | Done: {done}")
+def log_step(step: int, action: Any, reward: float, done: bool, error: Any = None):
+    print(f"[STEP] step={step} reward={reward}", flush=True)
 
-def log_end(success: bool, steps: int, score: float, rewards: List[float]):
-    print(f"--- Episode Ended ---")
-    print(f"Success: {'YES' if success else 'NO'}")
-    print(f"Score: {score:.3f} / 1.000")
-    print(f"Steps: {steps}")
-    print(f"Total Trajectory Reward: {sum(rewards)}")
+def log_end(task: str, success: bool, steps: int, score: float, rewards: List[float]):
+    print(f"[END] task={task} score={score} steps={steps}", flush=True)
 
 async def run_task(client: OpenAI, task_name: str) -> None:
     env = None
+    history: List[str] = []
     rewards: List[float] = []
     steps_taken = 0
     score = 0.0
     success = False
 
     try:
+        log_start(task=task_name, env="CloudManagerEnv", model=MODEL_NAME)
+
         if ENV_SERVER_URL:
-            # Connecting directly to a running HF space or local FastAPI
             env = GenericEnvClient(base_url=ENV_SERVER_URL)
         else:
-            # Spin up a docker container for isolated evaluation
             try:
                 env = await GenericEnvClient.from_docker_image(IMAGE_NAME, env_vars={"TASK_NAME": task_name})
             except Exception as e:
-                print(f"[ERROR] Docker startup failed for {task_name}: {e}")
-                log_end(success=False, steps=0, score=0.0, rewards=[])
+                print(f"[ERROR] Docker startup failed for {task_name}: {e}", flush=True)
                 return
 
-        log_start(task=task_name, env="CloudManagerEnv", model=MODEL_NAME)
-
         try:
-            # Note: GenericEnvClient reset accepts arbitrary dict.
-            result = await env.reset() # This returns a StepResult with observation
+            result = await env.reset() 
             last_obs = result.observation
             last_reward = 0.0
 
@@ -93,37 +83,35 @@ async def run_task(client: OpenAI, task_name: str) -> None:
                 if result.done:
                     break
 
-                action_data = get_model_message(client, step, last_obs, last_reward, task_name)
+                action_data = get_model_message(client, step, last_obs, last_reward, task_name, history)
 
                 result = await env.step(action_data)
                 obs = result.observation
 
                 reward = result.reward or 0.0
                 done = result.done
-                error = None 
 
                 rewards.append(reward)
                 steps_taken = step
                 last_obs = obs
                 last_reward = reward
 
-                log_step(step=step, action=action_data, reward=reward, done=done, error=error)
+                log_step(step=step, action=action_data, reward=reward, done=done)
+                history.append(f"Step {step}: {action_data} -> reward {reward:+.2f}")
 
                 if done:
-                    # The final metadata from CloudManagerEnv will hold the normalized score
                     final_info = obs.get("metadata", {}).get("final_info", {})
                     score = final_info.get("normalized_score", 0.0)
                     break
 
-            # Override score with fallback calculation if missing from metadata
             if score == 0.0:
-                score = sum(rewards) / (MAX_STEPS * 2.0) # approx max total reward
-                score = min(max(score, 0.0), 1.0)  # clamp to [0, 1]
+                score = sum(rewards) / (MAX_STEPS * 1.0) # approx normalization
+                score = min(max(score, 0.0), 1.0)
 
             success = score >= SUCCESS_SCORE_THRESHOLD
 
         except Exception as e:
-            print(f"[ERROR] Exception during task execution: {e}")
+            print(f"[ERROR] Exception during task execution: {e}", flush=True)
         
     finally:
         if env:
@@ -131,7 +119,7 @@ async def run_task(client: OpenAI, task_name: str) -> None:
                 await env.close()
             except Exception as e:
                 print(f"[DEBUG] env.close() error: {e}", flush=True)
-        log_end(success=success, steps=steps_taken, score=score, rewards=rewards)
+        log_end(task=task_name, success=success, steps=steps_taken, score=score, rewards=rewards)
 
 async def main() -> None:
     if not HF_TOKEN:
