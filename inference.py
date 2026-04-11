@@ -12,8 +12,20 @@ MODEL_NAME = os.getenv("MODEL_NAME") or "Qwen/Qwen2.5-72B-Instruct"
 BENCHMARK = "CloudManagerEnv"
 
 # Optional — if you use from_docker_image():
+def get_fallback_image():
+    import subprocess
+    try:
+        out = subprocess.check_output(['docker', 'images', '--format', '{{.Repository}}:{{.Tag}}']).decode()
+        for line in out.splitlines():
+            name = line.strip()
+            if "cloud" in name and "none" not in name:
+                return name
+    except:
+        pass
+    return "cloud-env:latest"
+
 LOCAL_IMAGE_NAME = os.getenv("LOCAL_IMAGE_NAME")
-IMAGE_NAME = LOCAL_IMAGE_NAME if LOCAL_IMAGE_NAME else "cloud-env:latest"
+IMAGE_NAME = LOCAL_IMAGE_NAME if LOCAL_IMAGE_NAME else get_fallback_image()
 
 ENV_SERVER_URL = os.getenv("ENV_SERVER_URL") # if deployed to HF
 TASKS = ["cloud-management-easy", "cloud-management-medium", "cloud-management-hard"]
