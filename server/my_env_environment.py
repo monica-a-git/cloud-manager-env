@@ -144,7 +144,8 @@ class CloudManagerEnv(Environment[Action, Observation, State]):
         uptime = ((self.max_steps - self._state_data.total_crashes) / self.max_steps) * 100.0
 
         final_score = (efficiency * 0.4) + (uptime * 0.6)
-        normalized_score = min(max(final_score / 100.0, 0.0), 1.0)
+        # Ensure score is strictly between 0 and 1 exclusive (not 0.0, not 1.0)
+        normalized_score = min(max(final_score / 100.0, 0.001), 0.999)
         
         if final_score >= 90: letter = "A"
         elif final_score >= 80: letter = "B"

@@ -135,7 +135,7 @@ async def run_task(client: OpenAI, task_name: str) -> None:
             if score == 0.0:
                 score = sum(rewards) / (MAX_STEPS * 1.0) # approx normalization
             
-            score = min(max(score, 0.0), 1.0)
+            score = min(max(score, 0.001), 0.999)
             success = score >= SUCCESS_SCORE_THRESHOLD
 
         except Exception as e:
