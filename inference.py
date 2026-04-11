@@ -8,7 +8,7 @@ from openenv.core.generic_client import GenericEnvClient
 # STRICT: Use environment variables injected by the evaluation system
 API_BASE_URL = os.environ.get("API_BASE_URL")
 API_KEY = os.environ.get("API_KEY") or os.environ.get("HF_TOKEN")
-MODEL_NAME = os.getenv("MODEL_NAME")
+MODEL_NAME = os.getenv("MODEL_NAME") or "Qwen/Qwen2.5-72B-Instruct"
 BENCHMARK = "CloudManagerEnv"
 
 # Optional — if you use from_docker_image():

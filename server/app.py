@@ -3,12 +3,13 @@ import json
 import time
 import gradio as gr
 from fastapi import FastAPI
-from huggingface_hub import InferenceClient
+from openai import OpenAI
 from openenv.core.env_server import create_app
 from my_env.server.my_env_environment import CloudManagerEnv
 from my_env.models import Action, Observation
 
-HF_TOKEN = os.environ.get("API_KEY") or os.environ.get("HF_TOKEN")
+API_BASE_URL = os.environ.get("API_BASE_URL")
+API_KEY = os.environ.get("API_KEY") or os.environ.get("HF_TOKEN")
 MODEL_NAME = os.environ.get("MODEL_NAME")
 
 system_prompt = """
@@ -19,11 +20,15 @@ Valid commands: "start", "stop", "none".
 """
 
 def run_simulation(difficulty):
-    if not HF_TOKEN:
-        yield "Missing HF_TOKEN", "", "", "ERROR"
+    if not API_KEY:
+        yield "Missing API_KEY or HF_TOKEN", "", "", "ERROR"
+        return
+    
+    if not API_BASE_URL:
+        yield "Missing API_BASE_URL proxy variable", "", "", "ERROR"
         return
 
-    client = InferenceClient(token=HF_TOKEN)
+    client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
     task_name = f"cloud-management-{difficulty.lower()}"
     
     env = CloudManagerEnv(task_name=task_name)
@@ -34,13 +39,14 @@ def run_simulation(difficulty):
     for step in range(env.max_steps):
         try:
             import re
-            response = client.chat_completion(
-                model=MODEL_NAME,
+            response = client.chat.completions.create(
+                model=MODEL_NAME or "Qwen/Qwen2.5-72B-Instruct",
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": f"Observation: {obs.model_dump_json()}\nOutput STRICTLY only raw valid JSON without markdown backticks."}
                 ],
-                temperature=0.0
+                temperature=0.0,
+                max_tokens=512
             )
             text = response.choices[0].message.content.strip()
             match = re.search(r'\{.*\}', text, re.DOTALL)
