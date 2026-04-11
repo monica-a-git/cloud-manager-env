@@ -6,7 +6,7 @@ from openai import OpenAI
 from openenv.core.generic_client import GenericEnvClient
 
 # STRICT: Use environment variables injected by the evaluation system
-API_BASE_URL = os.environ.get("API_BASE_URL") or os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
+API_BASE_URL = os.environ.get("API_BASE_URL")
 API_KEY = os.environ.get("API_KEY") or os.environ.get("HF_TOKEN")
 MODEL_NAME = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
 BENCHMARK = "CloudManagerEnv"
@@ -124,12 +124,12 @@ async def run_task(client: OpenAI, task_name: str) -> None:
         log_end(task=task_name, success=success, steps=steps_taken, score=score, rewards=rewards)
 
 async def main() -> None:
-    if not API_KEY:
-        print("Set API_KEY or HF_TOKEN environment variable. Proceeding with dummy key for debug syntax check...")
+    if not API_BASE_URL or not API_KEY:
+        raise RuntimeError("Missing required injected environment variables: API_BASE_URL and API_KEY")
 
     # STRICT: Follow the 'HOW TO FIX' instructions exactly for evaluation
-    base_url = os.environ.get("API_BASE_URL") or API_BASE_URL
-    api_key = os.environ.get("API_KEY") or API_KEY or "dummy"
+    base_url = API_BASE_URL
+    api_key = API_KEY
     
     openai_client = OpenAI(base_url=base_url, api_key=api_key)
 
