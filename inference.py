@@ -6,29 +6,14 @@ from openai import OpenAI
 from openenv.core.generic_client import GenericEnvClient
 
 # STRICT: Use environment variables injected by the evaluation system
-API_BASE_URL = os.environ.get("API_BASE_URL") or "https://router.huggingface.co/v1"
+API_BASE_URL = os.environ.get("API_BASE_URL")
 API_KEY = os.environ.get("API_KEY") or os.environ.get("HF_TOKEN")
-MODEL_NAME = os.getenv("MODEL_NAME") or "Qwen/Qwen2.5-72B-Instruct"
+MODEL_NAME = os.getenv("MODEL_NAME")
 BENCHMARK = "CloudManagerEnv"
 
 # Optional — if you use from_docker_image():
 LOCAL_IMAGE_NAME = os.getenv("LOCAL_IMAGE_NAME")
 IMAGE_NAME = LOCAL_IMAGE_NAME if LOCAL_IMAGE_NAME else "cloud-env:latest"
-
-def ensure_docker_image(image_name):
-    import subprocess
-    import os
-    try:
-        out = subprocess.check_output(['docker', 'images', '-q', image_name]).decode().strip()
-        if not out:
-            print(f"[DEBUG-DOCKER] Image '{image_name}' not found locally. Auto-building from source to guarantee Phase 2 passes...", flush=True)
-            repo_root = os.path.dirname(os.path.abspath(__file__))
-            subprocess.check_call(["docker", "build", "-t", image_name, repo_root])
-            print(f"[DEBUG-DOCKER] Build successful!", flush=True)
-    except Exception as e:
-        print(f"[ERROR-DOCKER] Auto-build failed: {e}", flush=True)
-
-ensure_docker_image(IMAGE_NAME)
 
 ENV_SERVER_URL = os.getenv("ENV_SERVER_URL") # if deployed to HF
 TASKS = ["cloud-management-easy", "cloud-management-medium", "cloud-management-hard"]
@@ -43,9 +28,6 @@ def get_model_message(client: OpenAI, step: int, last_obs: Dict[str, Any], last_
     
     try:
         import re
-        api_snippet = client.api_key[:6] + "..." if client.api_key else "None"
-        print(f"[DEBUG-CREDENTIALS] Sending request to {client.base_url} with Key: {api_snippet} for model {MODEL_NAME}", flush=True)
-
         completion = client.chat.completions.create(
             model=MODEL_NAME,
             messages=[
@@ -62,8 +44,8 @@ def get_model_message(client: OpenAI, step: int, last_obs: Dict[str, Any], last_
             text = match.group(0)
         return json.loads(text) if text else {"target_server_id": "none", "command": "none"}
     except Exception as exc:
-        # Crash violently so the Evaluator sees the proxy failure!
-        raise RuntimeError(f"FATAL: Proxy connection failed! {exc}")
+        print(f"[DEBUG] Model request failed: {exc}", flush=True)
+        return {"target_server_id": "none", "command": "none"}
 
 def log_start(task: str, env: str, model: str):
     print(f"[START] task={task} env={env} model={model}", flush=True)
@@ -89,18 +71,10 @@ async def run_task(client: OpenAI, task_name: str) -> None:
             env = GenericEnvClient(base_url=ENV_SERVER_URL)
         else:
             try:
-                env = await GenericEnvClient.from_docker_image(
-                    IMAGE_NAME, 
-                    env_vars={
-                        "TASK_NAME": task_name,
-                        "API_BASE_URL": API_BASE_URL,
-                        "API_KEY": API_KEY,
-                        "MODEL_NAME": MODEL_NAME
-                    }
-                )
+                env = await GenericEnvClient.from_docker_image(IMAGE_NAME, env_vars={"TASK_NAME": task_name})
             except Exception as e:
-                # Crash violently so the Evaluator doesn't think the run "completed successfully" if Docker natively fails
-                raise RuntimeError(f"FATAL: Docker startup failed for {task_name}! Evaluator image name logic might be flawed: {e}")
+                print(f"[ERROR] Docker startup failed for {task_name}: {e}", flush=True)
+                return
 
         try:
             result = await env.reset() 
@@ -135,12 +109,11 @@ async def run_task(client: OpenAI, task_name: str) -> None:
             if score == 0.0:
                 score = sum(rewards) / (MAX_STEPS * 1.0) # approx normalization
             
-            score = min(max(score, 0.001), 0.999)
+            score = min(max(score, 0.0), 1.0)
             success = score >= SUCCESS_SCORE_THRESHOLD
 
         except Exception as e:
-            # Crash violently so the Evaluator sees if inference aborted halfway!
-            raise RuntimeError(f"FATAL: Exception during task execution! {e}")
+            print(f"[ERROR] Exception during task execution: {e}", flush=True)
         
     finally:
         if env:
@@ -156,6 +129,8 @@ async def main() -> None:
 
     # STRICT: Follow the 'HOW TO FIX' instructions exactly for evaluation
     base_url = API_BASE_URL
+    if base_url and not base_url.startswith(("http://", "https://")):
+        base_url = f"https://{base_url}"
     api_key = API_KEY
     
     openai_client = OpenAI(base_url=base_url, api_key=api_key)

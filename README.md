@@ -14,6 +14,8 @@ app_port: 8000
 
 Welcome to **Cloud AI Manager**, a real-world OpenEnv simulation where an AI agent acts as a Cloud Infrastructure Manager. In this environment, the agent must monitor and predict rapidly fluctuating Web Traffic and scale cloud resources efficiently—matching capacity dynamically to minimize costs, prevent catastrophic crashes, and optimize stability over the long run!
 
+**Deployed on :** https://huggingface.co/spaces/a-monica/cloud-manager
+
 ## Motivations
 
 This environment replicates the real-world Site Reliability Engineering (SRE) and auto-scaling task where humans typically monitor Grafana dashboards and spin up/down cloud instances based on volatile usage. The agent learns resource conservation vs. availability trade-offs, handling realistic noise, sudden virality spikes, and capacity planning.

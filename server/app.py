@@ -24,7 +24,11 @@ def run_simulation(difficulty):
         yield "Missing required environment variables (API_KEY, API_BASE_URL). Ensure they are passed to the container.", "", "", "ERROR"
         return
 
-    client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
+    api_base_url = API_BASE_URL
+    if api_base_url and not api_base_url.startswith(("http://", "https://")):
+        api_base_url = f"https://{api_base_url}"
+
+    client = OpenAI(base_url=api_base_url, api_key=API_KEY)
     task_name = f"cloud-management-{difficulty.lower()}"
     
     env = CloudManagerEnv(task_name=task_name)
