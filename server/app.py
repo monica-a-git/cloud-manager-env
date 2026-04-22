@@ -20,64 +20,68 @@ Valid commands: "start", "stop", "none".
 """
 
 def run_simulation(difficulty):
-    if not API_KEY or not API_BASE_URL:
-        yield "Missing required environment variables (API_KEY, API_BASE_URL). Ensure they are passed to the container.", "", "", "ERROR"
-        return
-
-    api_base_url = API_BASE_URL
-    if api_base_url and not api_base_url.startswith(("http://", "https://")):
-        api_base_url = f"https://{api_base_url}"
-
-    client = OpenAI(base_url=api_base_url, api_key=API_KEY)
-    task_name = f"cloud-management-{difficulty.lower()}"
-    
-    env = CloudManagerEnv(task_name=task_name)
-    obs = env.reset()
-
-    log_text = f"Starting {task_name}...\n"
-    
-    for step in range(env.max_steps):
-        try:
-            import re
-            response = client.chat.completions.create(
-                model=MODEL_NAME or "Qwen/Qwen2.5-72B-Instruct",
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": f"Observation: {obs.model_dump_json()}\nOutput STRICTLY only raw valid JSON without markdown backticks."}
-                ],
-                temperature=0.0,
-                max_tokens=512
-            )
-            text = response.choices[0].message.content.strip()
-            match = re.search(r'\{.*\}', text, re.DOTALL)
-            if match:
-                text = match.group(0)
-            action_data = json.loads(text)
-            action = Action(**action_data)
-        except Exception as e:
-            yield log_text + f"\n[ERROR] Model request failed: {str(e)}\nAPI_BASE_URL used: '{api_base_url}'", "Crashes: N/A | Cost: N/A", "Traffic: N/A", "FATAL ERROR"
+    try:
+        if not API_KEY or not API_BASE_URL:
+            yield "Missing required environment variables (API_KEY, API_BASE_URL). Ensure they are passed to the container.", "", "", "ERROR"
             return
-
-        obs = env.step(action)
+    
+        api_base_url = API_BASE_URL
+        if api_base_url and not api_base_url.startswith(("http://", "https://")):
+            api_base_url = f"https://{api_base_url}"
+    
+        client = OpenAI(base_url=api_base_url, api_key=API_KEY)
+        task_name = f"cloud-management-{difficulty.lower()}"
         
-        recent_log = obs.history_log[-1] if hasattr(obs, 'history_log') and obs.history_log else ""
-        traffic = obs.current_traffic if hasattr(obs, 'current_traffic') else 0
-        state = env.state
-        capacity = sum(s.capacity for s in state.servers if s.is_active)
-
-        log_text = recent_log + "\n" + log_text
-        stats = f"Crashes: {state.total_crashes} | Cost: ${state.total_cost:.2f} | Reward: {state.total_reward}"
-
-        yield log_text, stats, f"Traffic: {traffic} | Capacity: {capacity}", "Running..."
-
-        time.sleep(0.1)
-
-        if obs.done:
-            info = obs.metadata.get("final_info", {})
-            grade = info.get("grade", "N/A")
-            score = info.get("normalized_score", 0.0)
-            yield log_text, stats, f"Done (Traffic: 0 | Capacity: {capacity})", f"Final Grade: {grade} ({score*100}%)"
-            break
+        env = CloudManagerEnv(task_name=task_name)
+        obs = env.reset()
+    
+        log_text = f"Starting {task_name}...\n"
+        
+        for step in range(env.max_steps):
+            try:
+                import re
+                response = client.chat.completions.create(
+                    model=MODEL_NAME or "Qwen/Qwen2.5-72B-Instruct",
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": f"Observation: {obs.model_dump_json()}\nOutput STRICTLY only raw valid JSON without markdown backticks."}
+                    ],
+                    temperature=0.0,
+                    max_tokens=512
+                )
+                text = response.choices[0].message.content.strip()
+                match = re.search(r'\{.*\}', text, re.DOTALL)
+                if match:
+                    text = match.group(0)
+                action_data = json.loads(text)
+                action = Action(**action_data)
+            except Exception as e:
+                yield log_text + f"\n[ERROR] Model request failed: {str(e)}\nAPI_BASE_URL used: '{api_base_url}'", "Crashes: N/A | Cost: N/A", "Traffic: N/A", "FATAL ERROR"
+                return
+    
+            obs = env.step(action)
+            
+            recent_log = obs.history_log[-1] if hasattr(obs, 'history_log') and obs.history_log else ""
+            traffic = obs.current_traffic if hasattr(obs, 'current_traffic') else 0
+            state = env.state
+            capacity = sum(s.capacity for s in state.servers if s.is_active)
+    
+            log_text = recent_log + "\n" + log_text
+            stats = f"Crashes: {state.total_crashes} | Cost: ${state.total_cost:.2f} | Reward: {state.total_reward}"
+    
+            yield log_text, stats, f"Traffic: {traffic} | Capacity: {capacity}", "Running..."
+    
+            time.sleep(0.1)
+    
+            if obs.done:
+                info = obs.metadata.get("final_info", {})
+                grade = info.get("grade", "N/A")
+                score = info.get("normalized_score", 0.0)
+                yield log_text, stats, f"Done (Traffic: 0 | Capacity: {capacity})", f"Final Grade: {grade} ({score*100}%)"
+                break
+    except Exception as general_exec:
+        yield f"[CRITICAL ERROR] Python Exception during setup/execution: {str(general_exec)}", "Crashes: N/A | Cost: N/A", "Traffic: N/A", "FATAL EXECUTION ERROR"
+        return
 
 with gr.Blocks() as demo:
     gr.Markdown(f"# ☁️ AI Cloud Server Manager UI\n\n**Active Model:** `{MODEL_NAME}`\n\nMonitor your AI Agent as it manages server capacity to meet unpredictable traffic spikes!")
